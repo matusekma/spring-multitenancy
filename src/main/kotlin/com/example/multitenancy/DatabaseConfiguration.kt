@@ -16,7 +16,9 @@ import org.springframework.context.annotation.Configuration
 import org.springframework.data.r2dbc.core.*
 import org.springframework.data.r2dbc.dialect.PostgresDialect
 import org.springframework.data.r2dbc.repository.config.EnableR2dbcRepositories
+import org.springframework.r2dbc.connection.R2dbcTransactionManager
 import org.springframework.r2dbc.core.DatabaseClient
+import java.util.concurrent.ConcurrentHashMap
 
 
 @Configuration
@@ -51,12 +53,16 @@ class AdminDatabaseConfiguration {
     }
 
     @Bean
+    fun adminTransactionManager(adminConnectionFactory: ConnectionFactory): R2dbcTransactionManager {
+        return R2dbcTransactionManager(adminConnectionFactory)
+    }
+
+    @Bean
     fun adminR2dbcEntityOperations(@Qualifier("adminConnectionFactory") connectionFactory: ConnectionFactory): R2dbcEntityOperations {
-        val strategy = DefaultReactiveDataAccessStrategy(PostgresDialect.INSTANCE)
         val databaseClient = DatabaseClient.builder()
             .connectionFactory(connectionFactory)
             .build()
-        return R2dbcEntityTemplate(databaseClient, strategy)
+        return R2dbcEntityTemplate(databaseClient, PostgresDialect.INSTANCE)
     }
 }
 
@@ -67,45 +73,22 @@ class AdminDatabaseConfiguration {
 )
 class MainDatabaseConfiguration {
 
-
     @Bean
-    fun mainConnectionFactory(tenantRepository: TenantRepository): ConnectionFactory {
-        val factory = PostgresTenantConnectionFactory()
+    fun mainConnectionFactory(
+        tenantRepository: TenantRepository
+    ): PostgresTenantConnectionFactory {
         val tenants = runBlocking {
             tenantRepository.findAll().map { it.name }.toList()
-            // TODO - fetch from somewhere
         }
-        val tenantConnectionFactoryMap = tenants.associateWith { createTenantConnectionFactory(it) }
-        factory.setTargetConnectionFactories(
-            tenantConnectionFactoryMap
-        )
-        factory.setLenientFallback(false)
-        return factory
+        val tenantConnectionFactoryMap = tenants.associateWith { PostgresTenantConnectionFactory.createTenantConnectionFactory(it) }
+        return PostgresTenantConnectionFactory(ConcurrentHashMap(tenantConnectionFactoryMap), tenantRepository)
     }
 
     @Bean
     fun mainR2dbcEntityOperations(@Qualifier("mainConnectionFactory") connectionFactory: ConnectionFactory): R2dbcEntityOperations {
-        val strategy = DefaultReactiveDataAccessStrategy(PostgresDialect.INSTANCE)
         val databaseClient = DatabaseClient.builder()
             .connectionFactory(connectionFactory)
             .build()
-        return R2dbcEntityTemplate(databaseClient, strategy)
-    }
-
-    private fun createTenantConnectionFactory(tenantId: String): ConnectionFactory {
-        return PoolingConnectionFactoryProvider().create(
-            builder()
-                .option(DRIVER, "pool")
-                .option(PROTOCOL, "postgresql")
-                .option(HOST, "localhost")
-                .option(PORT, 5432)
-                .option(USER, "wallet")
-                .option(PASSWORD, "wallet")
-                .option(DATABASE, "wallet")
-                .option(SCHEMA, tenantId)
-                .option(MIN_IDLE, 1)
-                .option(MAX_SIZE, 10)
-                .build()
-        )
+        return R2dbcEntityTemplate(databaseClient, PostgresDialect.INSTANCE)
     }
 }

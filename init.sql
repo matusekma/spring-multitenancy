@@ -11,18 +11,13 @@ SET row_security = off;
 
 CREATE SCHEMA admin;
 
-
 ALTER SCHEMA admin OWNER TO wallet;
-
 
 CREATE SCHEMA tenant1;
 
-
 ALTER SCHEMA tenant1 OWNER TO wallet;
 
-
 CREATE SCHEMA tenant2;
-
 
 ALTER SCHEMA tenant2 OWNER TO wallet;
 
@@ -30,17 +25,28 @@ SET default_tablespace = '';
 
 SET default_table_access_method = heap;
 
-CREATE TABLE admin.tenants (
-    id integer,
+CREATE TABLE admin.tenants
+(
+    id   SERIAL PRIMARY KEY,
     name text
 );
 
-ALTER TABLE admin.tenants OWNER TO wallet;
+CREATE TABLE tenant1.passes
+(
+    id   SERIAL PRIMARY KEY,
+    name text
+);
 
+CREATE TABLE tenant2.passes
+(
+    id   SERIAL PRIMARY KEY,
+    name text
+);
 
-INSERT INTO tenant1.passes (name, id) VALUES ('tenant1pass', 1);
+INSERT INTO tenant1.passes (name, id)
+VALUES ('tenant1pass', 1);
 
-
-INSERT INTO tenant2.passes (name, id) VALUES ('tenant2pass', 1);
+INSERT INTO tenant2.passes (name, id)
+VALUES ('tenant2pass', 1);
 
 
